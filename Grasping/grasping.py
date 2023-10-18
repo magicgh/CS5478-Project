@@ -3,7 +3,7 @@ import pybullet_data as pd
 import math
 import time
 import numpy as np
-import pybullet_robots.panda.panda_sim_grasp as panda_sim
+import panda_sim_grasp as panda_sim
 
 # video requires ffmpeg available in path
 createVideo = False
