@@ -16,7 +16,9 @@ else:
     p.connect(p.GUI)
 
 p.configureDebugVisualizer(p.COV_ENABLE_Y_AXIS_UP, 1)
-p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
+p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 1)
+p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 1)
 p.setPhysicsEngineParameter(maxNumCmdPer1ms=1000)
 p.resetDebugVisualizerCamera(cameraDistance=1.3, cameraYaw=38, cameraPitch=-22, cameraTargetPosition=[0.35, -0.13, 0])
 p.setAdditionalSearchPath(pd.getDataPath())

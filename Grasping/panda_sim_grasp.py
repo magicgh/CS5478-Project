@@ -39,24 +39,26 @@ class PandaSimAuto(object):
                                                       flags=flags))
         self.bullet_client.changeVisualShape(self.legos[0], -1, rgbaColor=[1, 0, 0, 1])  # 修改目标物体的颜色
         self.legos.append(self.bullet_client.loadURDF("lego/lego.urdf",
-                                                      np.array([0.1, 0.3, -0.5]) + self.offset,
+                                                      np.array([-0.1, 0.3, -0.5]) + self.offset,
                                                       flags=flags))
         self.legos.append(self.bullet_client.loadURDF("lego/lego.urdf",
-                                                      np.array([0.1, 0.3, -0.5]) + self.offset,
+                                                      np.array([0.1, 0.3, -0.7]) + self.offset,
                                                       flags=flags))
 
         self.sphereId = self.bullet_client.loadURDF("sphere_small.urdf",
                                                     np.array([0, 0.3, -0.6]) + self.offset,
                                                     flags=flags)
-        self.sphereId = self.bullet_client.loadURDF("sphere_small.urdf",
-                                                    np.array([0, 0.3, -0.6]) + self.offset,
-                                                    flags=flags)
+        self.bullet_client.loadURDF("sphere_small.urdf",
+                                    np.array([0, 0.3, -0.5]) + self.offset,
+                                    flags=flags)
+        self.bullet_client.loadURDF("sphere_small.urdf",
+                                    np.array([0, 0.3, -0.7]) + self.offset,
+                                    flags=flags)
 
         self.panda = self.bullet_client.loadURDF("franka_panda/panda.urdf",
                                                  np.array([0, 0, 0]) + self.offset,
-                                                 [-0.5, -0.5, -0.5, 0.5],
-                                                 useFixedBase=True,
-                                                 flags=flags)
+                                                 [-0.707107, 0.0, 0.0, 0.707107],
+                                                 useFixedBase=True, flags=flags)
 
         index = 0
         self.state = 0
@@ -90,10 +92,11 @@ class PandaSimAuto(object):
 
         self.state_t = 0
         self.cur_state = 0
-        # 0：空闲、3：移动到目标上方、5：张开机械手、4：移动到目标处、6：闭合机械手、3：移动到目标上方、7：移动到结束位置
-        self.states = [0, 3, 5, 4, 6, 3, 7]
-        self.state_durations = [1, 1, 1, 1, 1, 1, 5]
-        self.prev_pos = [0, 0, 0]
+        # 0：空闲、1：移动到托盘中心上方、2：获取深度图片计算最优抓取位置、3：移动到目标上方、4：张开机械手、5：移动到目标处、6：闭合机械手、3：移动到目标上方、7：移动到结束位置
+        self.states = [0, 1, 2, 3, 4, 5, 6, 3, 7]
+        self.state_durations = [1, 1, 0, 1, 1, 1, 1, 1, 5]
+        end_effector_index = self.bullet_client.getNumJoints(self.panda) - 1
+        self.prev_pos = self.bullet_client.getLinkState(self.panda, end_effector_index, computeForwardKinematics=True)[0]
 
     def update_state(self):
         self.state_t += self.control_dt
@@ -106,31 +109,58 @@ class PandaSimAuto(object):
             print("self.state=", self.state)
 
     def step(self):
+        if self.state == 2:
+            width = 1080  # 图像宽度
+            height = 720  # 图像高度
+
+            fov = 100  # 相机视角
+            aspect = width / height  # 宽高比
+            near = 0.01  # 最近拍摄距离
+            far = 20  # 最远拍摄距离
+
+            cameraPos = self.prev_pos  # 相机位置
+            targetPos = [self.prev_pos[0], 0, self.prev_pos[2]]  # 目标位置，与相机位置之间的向量构成相机朝向
+            cameraUpPos = [1, 0, 0]  # 相机顶端朝向
+
+            viewMatrix = self.bullet_client.computeViewMatrix(
+                cameraEyePosition=cameraPos,
+                cameraTargetPosition=targetPos,
+                cameraUpVector=cameraUpPos,
+                physicsClientId=0
+            )  # 计算视角矩阵
+            projection_matrix = self.bullet_client.computeProjectionMatrixFOV(fov, aspect, near, far)  # 计算投影矩阵
+            images = self.bullet_client.getCameraImage(width, height, viewMatrix, projection_matrix,
+                                                       renderer=self.bullet_client.ER_BULLET_HARDWARE_OPENGL)
         if self.state == 6:  # 闭合机械手
             self.finger_target = 0.01
-        if self.state == 5:  # 张开机械手
+        if self.state == 4:  # 张开机械手
             self.finger_target = 0.04
         self.bullet_client.submitProfileTiming("step")
         self.update_state()
         # print("self.state=",self.state)
         # print("self.finger_target=",self.finger_target)
         alpha = 0.9  # 移动速度，越接近1越慢
-        if self.state == 3 or self.state == 4 or self.state == 7:  # 需要移动的状态
+        if self.state == 1 or self.state == 3 or self.state == 5 or self.state == 7:  # 需要移动的状态
             # gripper_height = 0.034
-            if self.state == 4:
+            if self.state == 5:
                 self.gripper_height = alpha * self.gripper_height + (1. - alpha) * 0.03  # 这里的0.03代表目标位置高度
-            elif self.state == 3 or self.state == 7:
+            elif self.state == 1 or self.state == 3 or self.state == 7:
                 self.gripper_height = alpha * self.gripper_height + (1. - alpha) * 0.2  # 这里的0.2代表目标位置高度
 
             pos = [0, 0, 0]
-            if self.state == 3 or self.state == 4:
+            if self.state == 3 or self.state == 5:
                 pos, _ = self.bullet_client.getBasePositionAndOrientation(self.legos[0])  # 直接获取了某个物体的位置的渐进位置
                 pos = [pos[0], self.gripper_height, pos[2]]
                 self.prev_pos = pos
-            elif self.state == 7:
+            elif self.state == 1:
                 diffX = self.prev_pos[0] - self.offset[0]
                 diffZ = self.prev_pos[2] - (self.offset[2] - 0.6)
-                pos = [self.prev_pos[0] - diffX * 0.1, self.prev_pos[1], self.prev_pos[2] - diffZ * 0.1]
+                pos = [self.prev_pos[0] - diffX * 0.1, self.gripper_height, self.prev_pos[2] - diffZ * 0.1]
+                self.prev_pos = pos
+            elif self.state == 7:
+                diffX = self.prev_pos[0] - self.offset[0]
+                diffZ = self.prev_pos[2] - (self.offset[2] + 0.6)
+                pos = [self.prev_pos[0] - diffX * 0.1, self.gripper_height, self.prev_pos[2] - diffZ * 0.1]
                 self.prev_pos = pos
 
             orn = self.bullet_client.getQuaternionFromEuler([math.pi / 2., 0, 0.])  # 需要根据预测结果调整第二个维度
