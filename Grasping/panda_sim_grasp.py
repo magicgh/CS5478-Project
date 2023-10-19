@@ -128,23 +128,24 @@ class PandaSimAuto(object):
 
         pos = self.prev_pos
         orn = [math.pi / 2., 0, 0.]  # 需要根据预测结果调整第二个维度
-        alpha = 0.9  # 移动速度，越接近1越慢
+        alpha = 0.01  # 移动速度，越接近1越慢
         if self.state == 1:
-            pos = self.get_next_pos(0, 0.4, -0.6, 0.1)
+            pos = self.get_next_pos(0, 0.4, -0.6, alpha)
         elif self.state == 2:
             self.graspPos = self.get_grasp_pos()
         elif self.state == 3:
-            pos = self.get_next_pos(self.graspPos[0], 0.4, self.graspPos[2], 0.1)
-            orn = self.get_next_orn(math.pi / 2., 0., 0., 0.1)
+            pos = self.get_next_pos(self.graspPos[0], 0.4, self.graspPos[2], alpha)
+            orn = self.get_next_orn(math.pi / 2., 0., 0., alpha)
         elif self.state == 4:  # 张开机械手
             self.finger_target = 0.04
         elif self.state == 5:
-            pos = self.get_next_pos(self.graspPos[0], self.graspPos[1], self.graspPos[2], 0.1)
-            orn = self.get_next_orn(math.pi / 2., self.graspPos[3], 0., 0.1)
+            # gripper_height = 0.034
+            pos = self.get_next_pos(self.graspPos[0], self.graspPos[1] + 0.034, self.graspPos[2], alpha)
+            orn = self.get_next_orn(math.pi / 2., self.graspPos[3], 0., alpha)
         elif self.state == 6:  # 闭合机械手
             self.finger_target = 0.01
         elif self.state == 7:
-            pos = self.get_next_pos(0.6, 0.4, 0, 0.1)
+            pos = self.get_next_pos(0.6, 0.4, 0, alpha)
 
         if pos != self.prev_pos:
             self.prev_pos = pos
@@ -165,7 +166,7 @@ class PandaSimAuto(object):
         width = 640  # 图像宽度
         height = 480  # 图像高度
 
-        fov = 63  # 相机视角
+        fov = 49  # 相机视角
         aspect = width / height  # 宽高比
         near = 0.01  # 最近拍摄距离
         far = 1.0  # 最远拍摄距离
@@ -209,8 +210,10 @@ class PandaSimAuto(object):
             vis.show()
 
         pose = action.grasp.pose().position
-        return [self.prev_pos[0] - pose[0], self.prev_pos[1] - pose[2], self.prev_pos[2] + pose[1],
-                math.pi - action.grasp.angle % math.pi]
+        angle = (math.pi - action.grasp.angle % math.pi) % math.pi
+        if angle > math.pi / 2:
+            angle = angle - math.pi
+        return [self.prev_pos[0] - pose[0], self.prev_pos[1] - pose[2], self.prev_pos[2] + pose[1], angle]
 
     def get_next_pos(self, x, y, z, alpha):
         pos = [0, 0, 0]
