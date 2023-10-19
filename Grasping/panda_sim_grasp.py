@@ -2,6 +2,10 @@ import time
 import numpy as np
 import math
 
+from autolab_core import YamlConfig, CameraIntrinsics, DepthImage, ColorImage, RgbdImage
+from visualization import Visualizer2D as vis
+from gqcnn.grasping import CrossEntropyRobustGraspingPolicy, RgbdImageState
+
 useNullSpace = 1
 ikSolver = 0
 pandaEndEffectorIndex = 11  # 8
@@ -63,7 +67,6 @@ class PandaSimAuto(object):
         index = 0
         self.state = 0
         self.control_dt = 1. / 240.
-        self.finger_target = 0
 
         # create a constraint to keep the fingers centered
         c = self.bullet_client.createConstraint(self.panda,
@@ -89,14 +92,25 @@ class PandaSimAuto(object):
                 self.bullet_client.resetJointState(self.panda, j, jointPositions[index])
                 index = index + 1
 
+        self.prev_pos = self.bullet_client.getLinkState(
+            self.panda, pandaEndEffectorIndex, computeForwardKinematics=True)[0]
+        self.prev_orn = self.bullet_client.getQuaternionFromEuler([math.pi / 2., 0, 0.])
+        self.graspPos = np.array([0, 0, 0, 0])
+        self.finger_target = 0
+
         self.state_t = 0
         self.cur_state = 0
         # 0：空闲、1：移动到托盘中心上方、2：获取深度图片计算最优抓取位置、3：移动到目标上方、4：张开机械手、5：移动到目标处、6：闭合机械手、3：移动到目标上方、7：移动到结束位置
-        self.states = [0, 1, 2, 3, 4, 5, 6, 3, 7]
-        self.state_durations = [1, 1, 0, 1, 1, 1, 1, 1, 5]
-        self.prev_pos = self.bullet_client.getLinkState(
-            self.panda, pandaEndEffectorIndex, computeForwardKinematics=True)[0]
-        self.graspPos = [0, 0, 0, 0]
+        self.states = [0, 1, 2, 3, 4, 5, 6, 3, 7, 4]
+        self.state_durations = [1, 1, 0, 1, 1, 1, 1, 1, 1, 1]
+
+        config = YamlConfig('gqcnn_pj.yaml')
+        self.inpaint_rescale_factor = config["inpaint_rescale_factor"]
+        self.policy_config = config["policy"]
+        self.policy_config["metric"]["gqcnn_model"] = 'models/GQCNN-2.1'
+        self.policy = CrossEntropyRobustGraspingPolicy(self.policy_config)
+
+        self.camera_intr = CameraIntrinsics.load('primesense.intr')
 
     def update_state(self):
         self.state_t += self.control_dt
@@ -113,47 +127,48 @@ class PandaSimAuto(object):
         self.update_state()
 
         pos = self.prev_pos
-        orn = self.bullet_client.getQuaternionFromEuler([math.pi / 2., 0, 0.])  # 需要根据预测结果调整第二个维度
+        orn = [math.pi / 2., 0, 0.]  # 需要根据预测结果调整第二个维度
         alpha = 0.9  # 移动速度，越接近1越慢
         if self.state == 1:
-            pos = self.get_next_pos(0, 0.2, -0.6, 0.1)
-            self.prev_pos = pos
+            pos = self.get_next_pos(0, 0.4, -0.6, 0.1)
         elif self.state == 2:
             self.graspPos = self.get_grasp_pos()
         elif self.state == 3:
-            pos, _ = self.bullet_client.getBasePositionAndOrientation(self.legos[0])  # 直接获取了某个物体的位置的渐进位置
-            pos = [pos[0], alpha * self.prev_pos[1] + (1. - alpha) * 0.2, pos[2]]
-            self.prev_pos = pos
+            pos = self.get_next_pos(self.graspPos[0], 0.4, self.graspPos[2], 0.1)
+            orn = self.get_next_orn(math.pi / 2., 0., 0., 0.1)
         elif self.state == 4:  # 张开机械手
             self.finger_target = 0.04
         elif self.state == 5:
-            pos, _ = self.bullet_client.getBasePositionAndOrientation(self.legos[0])  # 直接获取了某个物体的位置的渐进位置
-            pos = [pos[0], alpha * self.prev_pos[1] + (1. - alpha) * 0.03, pos[2]]
-            self.prev_pos = pos
+            pos = self.get_next_pos(self.graspPos[0], self.graspPos[1], self.graspPos[2], 0.1)
+            orn = self.get_next_orn(math.pi / 2., self.graspPos[3], 0., 0.1)
         elif self.state == 6:  # 闭合机械手
             self.finger_target = 0.01
         elif self.state == 7:
-            pos = self.get_next_pos(0, 0.2, -0.6, 0.1)
-            self.prev_pos = pos
+            pos = self.get_next_pos(0.6, 0.4, 0, 0.1)
 
-        jointPoses = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex, pos, orn, ll,
-                                                                   ul, jr, rp, maxNumIterations=20)
-        for i in range(pandaNumDofs):
-            self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
-                                                     jointPoses[i], force=5 * 240.)
+        if pos != self.prev_pos:
+            self.prev_pos = pos
+            self.prev_orn = orn
+            quaternion_orn = self.bullet_client.getQuaternionFromEuler(orn)
+            jointPoses = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex, pos,
+                                                                       quaternion_orn, ll, ul, jr, rp,
+                                                                       maxNumIterations=20)
+            for i in range(pandaNumDofs):
+                self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
+                                                         jointPoses[i], force=5 * 240.)
 
         for i in [9, 10]:
             self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
                                                      self.finger_target, force=10)
 
     def get_grasp_pos(self):
-        width = 1080  # 图像宽度
-        height = 720  # 图像高度
+        width = 640  # 图像宽度
+        height = 480  # 图像高度
 
-        fov = 100  # 相机视角
+        fov = 63  # 相机视角
         aspect = width / height  # 宽高比
         near = 0.01  # 最近拍摄距离
-        far = 20  # 最远拍摄距离
+        far = 1.0  # 最远拍摄距离
 
         cameraPos = self.prev_pos  # 相机位置
         targetPos = [self.prev_pos[0], 0, self.prev_pos[2]]  # 目标位置，与相机位置之间的向量构成相机朝向
@@ -169,7 +184,33 @@ class PandaSimAuto(object):
         images = self.bullet_client.getCameraImage(width, height, viewMatrix, projection_matrix,
                                                    renderer=self.bullet_client.ER_BULLET_HARDWARE_OPENGL)
 
-        return [0, 0, 0, 0]
+        depth_data = np.reshape(images[3], (height, width, 1))
+        depth_data = far * near / (far - (far - near) * depth_data)
+        # depth_data = np.load('depth_0.npy')
+        depth_im = DepthImage(depth_data, frame=self.camera_intr.frame)
+        color_im = ColorImage(np.zeros([depth_im.height, depth_im.width, 3]).astype(np.uint8),
+                              frame=self.camera_intr.frame)
+        segmask = depth_im.invalid_pixel_mask().inverse()
+
+        depth_im = depth_im.inpaint(rescale_factor=self.inpaint_rescale_factor)
+
+        rgbd_im = RgbdImage.from_color_and_depth(color_im, depth_im)
+        state = RgbdImageState(rgbd_im, self.camera_intr, segmask=segmask)
+        action = self.policy(state)
+
+        if self.policy_config["vis"]["final_grasp"]:
+            vis.figure(size=(10, 10))
+            vis.imshow(rgbd_im.depth,
+                       vmin=self.policy_config["vis"]["vmin"],
+                       vmax=self.policy_config["vis"]["vmax"])
+            vis.grasp(action.grasp, scale=2.5, show_center=False, show_axis=True)
+            vis.title("Planned grasp at depth {0:.3f}m with Q={1:.3f}".format(
+                action.grasp.depth, action.q_value))
+            vis.show()
+
+        pose = action.grasp.pose().position
+        return [self.prev_pos[0] - pose[0], self.prev_pos[1] - pose[2], self.prev_pos[2] + pose[1],
+                math.pi - action.grasp.angle % math.pi]
 
     def get_next_pos(self, x, y, z, alpha):
         pos = [0, 0, 0]
@@ -177,3 +218,10 @@ class PandaSimAuto(object):
         pos[1] = self.prev_pos[1] * (1 - alpha) + alpha * y
         pos[2] = self.prev_pos[2] * (1 - alpha) + alpha * z
         return pos
+
+    def get_next_orn(self, x, y, z, alpha):
+        orn = [0, 0, 0]
+        orn[0] = self.prev_orn[0] * (1 - alpha) + alpha * x
+        orn[1] = self.prev_orn[1] * (1 - alpha) + alpha * y
+        orn[2] = self.prev_orn[2] * (1 - alpha) + alpha * z
+        return orn
