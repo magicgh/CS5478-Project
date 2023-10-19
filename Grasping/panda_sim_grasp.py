@@ -64,7 +64,6 @@ class PandaSimAuto(object):
         self.state = 0
         self.control_dt = 1. / 240.
         self.finger_target = 0
-        self.gripper_height = 0.2
 
         # create a constraint to keep the fingers centered
         c = self.bullet_client.createConstraint(self.panda,
@@ -95,8 +94,9 @@ class PandaSimAuto(object):
         # 0：空闲、1：移动到托盘中心上方、2：获取深度图片计算最优抓取位置、3：移动到目标上方、4：张开机械手、5：移动到目标处、6：闭合机械手、3：移动到目标上方、7：移动到结束位置
         self.states = [0, 1, 2, 3, 4, 5, 6, 3, 7]
         self.state_durations = [1, 1, 0, 1, 1, 1, 1, 1, 5]
-        end_effector_index = self.bullet_client.getNumJoints(self.panda) - 1
-        self.prev_pos = self.bullet_client.getLinkState(self.panda, end_effector_index, computeForwardKinematics=True)[0]
+        self.prev_pos = self.bullet_client.getLinkState(
+            self.panda, pandaEndEffectorIndex, computeForwardKinematics=True)[0]
+        self.graspPos = [0, 0, 0, 0]
 
     def update_state(self):
         self.state_t += self.control_dt
@@ -109,70 +109,71 @@ class PandaSimAuto(object):
             print("self.state=", self.state)
 
     def step(self):
-        if self.state == 2:
-            width = 1080  # 图像宽度
-            height = 720  # 图像高度
-
-            fov = 100  # 相机视角
-            aspect = width / height  # 宽高比
-            near = 0.01  # 最近拍摄距离
-            far = 20  # 最远拍摄距离
-
-            cameraPos = self.prev_pos  # 相机位置
-            targetPos = [self.prev_pos[0], 0, self.prev_pos[2]]  # 目标位置，与相机位置之间的向量构成相机朝向
-            cameraUpPos = [1, 0, 0]  # 相机顶端朝向
-
-            viewMatrix = self.bullet_client.computeViewMatrix(
-                cameraEyePosition=cameraPos,
-                cameraTargetPosition=targetPos,
-                cameraUpVector=cameraUpPos,
-                physicsClientId=0
-            )  # 计算视角矩阵
-            projection_matrix = self.bullet_client.computeProjectionMatrixFOV(fov, aspect, near, far)  # 计算投影矩阵
-            images = self.bullet_client.getCameraImage(width, height, viewMatrix, projection_matrix,
-                                                       renderer=self.bullet_client.ER_BULLET_HARDWARE_OPENGL)
-        if self.state == 6:  # 闭合机械手
-            self.finger_target = 0.01
-        if self.state == 4:  # 张开机械手
-            self.finger_target = 0.04
         self.bullet_client.submitProfileTiming("step")
         self.update_state()
-        # print("self.state=",self.state)
-        # print("self.finger_target=",self.finger_target)
+
+        pos = self.prev_pos
+        orn = self.bullet_client.getQuaternionFromEuler([math.pi / 2., 0, 0.])  # 需要根据预测结果调整第二个维度
         alpha = 0.9  # 移动速度，越接近1越慢
-        if self.state == 1 or self.state == 3 or self.state == 5 or self.state == 7:  # 需要移动的状态
-            # gripper_height = 0.034
-            if self.state == 5:
-                self.gripper_height = alpha * self.gripper_height + (1. - alpha) * 0.03  # 这里的0.03代表目标位置高度
-            elif self.state == 1 or self.state == 3 or self.state == 7:
-                self.gripper_height = alpha * self.gripper_height + (1. - alpha) * 0.2  # 这里的0.2代表目标位置高度
+        if self.state == 1:
+            pos = self.get_next_pos(0, 0.2, -0.6, 0.1)
+            self.prev_pos = pos
+        elif self.state == 2:
+            self.graspPos = self.get_grasp_pos()
+        elif self.state == 3:
+            pos, _ = self.bullet_client.getBasePositionAndOrientation(self.legos[0])  # 直接获取了某个物体的位置的渐进位置
+            pos = [pos[0], alpha * self.prev_pos[1] + (1. - alpha) * 0.2, pos[2]]
+            self.prev_pos = pos
+        elif self.state == 4:  # 张开机械手
+            self.finger_target = 0.04
+        elif self.state == 5:
+            pos, _ = self.bullet_client.getBasePositionAndOrientation(self.legos[0])  # 直接获取了某个物体的位置的渐进位置
+            pos = [pos[0], alpha * self.prev_pos[1] + (1. - alpha) * 0.03, pos[2]]
+            self.prev_pos = pos
+        elif self.state == 6:  # 闭合机械手
+            self.finger_target = 0.01
+        elif self.state == 7:
+            pos = self.get_next_pos(0, 0.2, -0.6, 0.1)
+            self.prev_pos = pos
 
-            pos = [0, 0, 0]
-            if self.state == 3 or self.state == 5:
-                pos, _ = self.bullet_client.getBasePositionAndOrientation(self.legos[0])  # 直接获取了某个物体的位置的渐进位置
-                pos = [pos[0], self.gripper_height, pos[2]]
-                self.prev_pos = pos
-            elif self.state == 1:
-                diffX = self.prev_pos[0] - self.offset[0]
-                diffZ = self.prev_pos[2] - (self.offset[2] - 0.6)
-                pos = [self.prev_pos[0] - diffX * 0.1, self.gripper_height, self.prev_pos[2] - diffZ * 0.1]
-                self.prev_pos = pos
-            elif self.state == 7:
-                diffX = self.prev_pos[0] - self.offset[0]
-                diffZ = self.prev_pos[2] - (self.offset[2] + 0.6)
-                pos = [self.prev_pos[0] - diffX * 0.1, self.gripper_height, self.prev_pos[2] - diffZ * 0.1]
-                self.prev_pos = pos
+        jointPoses = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex, pos, orn, ll,
+                                                                   ul, jr, rp, maxNumIterations=20)
+        for i in range(pandaNumDofs):
+            self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
+                                                     jointPoses[i], force=5 * 240.)
 
-            orn = self.bullet_client.getQuaternionFromEuler([math.pi / 2., 0, 0.])  # 需要根据预测结果调整第二个维度
-            self.bullet_client.submitProfileTiming("IK")
-            jointPoses = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex, pos, orn, ll,
-                                                                       ul, jr, rp, maxNumIterations=20)
-            self.bullet_client.submitProfileTiming()
-            for i in range(pandaNumDofs):
-                self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
-                                                         jointPoses[i], force=5 * 240.)
-        # target for fingers
         for i in [9, 10]:
             self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
                                                      self.finger_target, force=10)
-        self.bullet_client.submitProfileTiming()
+
+    def get_grasp_pos(self):
+        width = 1080  # 图像宽度
+        height = 720  # 图像高度
+
+        fov = 100  # 相机视角
+        aspect = width / height  # 宽高比
+        near = 0.01  # 最近拍摄距离
+        far = 20  # 最远拍摄距离
+
+        cameraPos = self.prev_pos  # 相机位置
+        targetPos = [self.prev_pos[0], 0, self.prev_pos[2]]  # 目标位置，与相机位置之间的向量构成相机朝向
+        cameraUpPos = [1, 0, 0]  # 相机顶端朝向
+
+        viewMatrix = self.bullet_client.computeViewMatrix(
+            cameraEyePosition=cameraPos,
+            cameraTargetPosition=targetPos,
+            cameraUpVector=cameraUpPos,
+            physicsClientId=0
+        )  # 计算视角矩阵
+        projection_matrix = self.bullet_client.computeProjectionMatrixFOV(fov, aspect, near, far)  # 计算投影矩阵
+        images = self.bullet_client.getCameraImage(width, height, viewMatrix, projection_matrix,
+                                                   renderer=self.bullet_client.ER_BULLET_HARDWARE_OPENGL)
+
+        return [0, 0, 0, 0]
+
+    def get_next_pos(self, x, y, z, alpha):
+        pos = [0, 0, 0]
+        pos[0] = self.prev_pos[0] * (1 - alpha) + alpha * x
+        pos[1] = self.prev_pos[1] * (1 - alpha) + alpha * y
+        pos[2] = self.prev_pos[2] * (1 - alpha) + alpha * z
+        return pos
