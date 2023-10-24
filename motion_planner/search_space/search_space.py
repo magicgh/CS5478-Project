@@ -2,14 +2,12 @@
 # file 'LICENSE', which is part of this source code package.
 
 import numpy as np
-from rtree import index
 
 from motion_planner.utilities.geometry import es_points_along_line
-from motion_planner.utilities.obstacle_generation import obstacle_generator
 
 
 class SearchSpace(object):
-    def __init__(self, dimension_lengths, O=None):
+    def __init__(self, dimension_lengths, obstacle_free):
         """
         Initialize Search Space
         :param dimension_lengths: range of each dimension
@@ -25,27 +23,9 @@ class SearchSpace(object):
         if any(i[0] >= i[1] for i in dimension_lengths):
             raise Exception("Dimension start must be less than dimension end")
         self.dimension_lengths = dimension_lengths  # length of each dimension
-        p = index.Property()
-        p.dimension = self.dimensions
-        if O is None:
-            self.obs = index.Index(interleaved=True, properties=p)
-        else:
-            # r-tree representation of obstacles
-            # sanity check
-            if any(len(o) / 2 != len(dimension_lengths) for o in O):
-                raise Exception("Obstacle has incorrect dimension definition")
-            if any(o[i] >= o[int(i + len(o) / 2)] for o in O for i in range(int(len(o) / 2))):
-                raise Exception("Obstacle start must be less than obstacle end")
-            self.obs = index.Index(obstacle_generator(O), interleaved=True, properties=p)
-
-    def obstacle_free(self, x):
-        """
-        Check if a location resides inside of an obstacle
-        :param x: location to check
-        :return: True if not inside an obstacle, False otherwise
-        """
-        return self.obs.count(x) == 0
-
+        
+        self.obstacle_free = obstacle_free  # function to check if a point is inside an obstacle
+        
     def sample_free(self):
         """
         Sample a location within X_free

@@ -38,7 +38,7 @@ class Panda(PyBulletRobot):
             base_position=base_position,
             action_space=action_space,
             joint_indices=np.array([0, 1, 2, 3, 4, 5, 6, 9, 10]),
-            joint_forces=np.array([87.0, 87.0, 87.0, 87.0, 12.0, 120.0, 120.0, 170.0, 170.0]),
+            joint_forces=np.array([0.3]*9),
         )
 
         self.fingers_indices = np.array([9, 10])
@@ -68,6 +68,8 @@ class Panda(PyBulletRobot):
 
         target_angles = np.concatenate((target_arm_angles, [target_fingers_width / 2, target_fingers_width / 2]))
         self.control_joints(target_angles=target_angles)
+        print("target_angles", target_angles)
+        print("after target_angles", np.array([self.get_joint_angle(joint=i) for i in range(7)]))
 
     def ee_displacement_to_target_arm_angles(self, ee_displacement: np.ndarray) -> np.ndarray:
         """Compute the target arm angles from the end-effector displacement.
@@ -91,6 +93,25 @@ class Panda(PyBulletRobot):
         target_arm_angles = target_arm_angles[:7]  # remove fingers angles
         return target_arm_angles
 
+    def ee_position_to_target_arm_angles(self, ee_position: np.ndarray) -> np.ndarray:
+        """Compute the target arm angles from the end-effector position.
+
+        Args:
+            ee_position (np.ndarray): End-effector position, as (x, y, z).
+
+        Returns:
+            np.ndarray: Target arm angles, as the angles of the 7 arm joints.
+        """
+        # get the current position and the target position
+        target_ee_position = ee_position.copy()
+        
+        # compute the new joint angles
+        target_arm_angles = self.inverse_kinematics(
+            link=self.ee_link, position=target_ee_position, orientation=np.array([1.0, 0.0, 0.0, 0.0])
+        )
+        target_arm_angles = target_arm_angles[:7]
+        return target_arm_angles
+        
     def arm_joint_ctrl_to_target_arm_angles(self, arm_joint_ctrl: np.ndarray) -> np.ndarray:
         """Compute the target arm angles from the arm joint control.
 
@@ -100,10 +121,13 @@ class Panda(PyBulletRobot):
         Returns:
             np.ndarray: Target arm angles, as the angles of the 7 arm joints.
         """
-        arm_joint_ctrl = arm_joint_ctrl * 0.05  # limit maximum change in position
+        arm_joint_ctrl = arm_joint_ctrl  # limit maximum change in position
         # get the current position and the target position
         current_arm_joint_angles = np.array([self.get_joint_angle(joint=i) for i in range(7)])
         target_arm_angles = current_arm_joint_angles + arm_joint_ctrl
+        print("current_arm_joint_angles", current_arm_joint_angles)
+        print("arm_joint_ctrl", arm_joint_ctrl)
+        print("target_arm_angles", target_arm_angles)
         return target_arm_angles
 
     def get_obs(self) -> np.ndarray:
@@ -139,6 +163,13 @@ class Panda(PyBulletRobot):
         """Returns the velocity of the end-effector as (vx, vy, vz)"""
         return self.get_link_velocity(self.ee_link)
     
-    def get_ee_orientation(self) -> np.ndarray:
-        """Returns the orientation of the end-effector as (x, y, z, w)"""
-        return self.get_link_orientation(self.ee_link)
+    def get_body_id(self):
+        return self.sim.get_body_id_from_name(self.body_name)
+    
+    def get_joint_indices(self):
+        return self.joint_indices[:-2]
+    
+    def set_joint_positions(self, values):
+        assert len(self.joint_indices) == len(values)
+        for joint, value in zip(self.joint_indices[:-2], values):
+            self.sim.resetJointState(self.body_name, joint, value)

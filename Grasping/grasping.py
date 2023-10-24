@@ -1,4 +1,4 @@
-import pybullet as p
+import panda_gym as p
 import pybullet_data as pd
 import math
 import time

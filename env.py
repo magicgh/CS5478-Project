@@ -1,7 +1,7 @@
 from panda_gym.envs.core import RobotTaskEnv
 import numpy as np
 from typing import Optional
-from panda_gym.pybullet import PyBullet
+from gymbullet import PyBullet
 from panda import Panda
 from task import PickAndPlace
 

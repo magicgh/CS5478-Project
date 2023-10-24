@@ -37,7 +37,9 @@ def es_points_along_line(start, end, r):
     :return: yields points along line from start to end, separated by distance r
     """
     d = dist_between_points(start, end)
+    print("d", d)
     n_points = int(np.ceil(d / r))
+    print("n_points", n_points)
     if n_points > 1:
         step = d / (n_points - 1)
         for i in range(n_points):

@@ -116,6 +116,7 @@ class RRTBase(object):
             return True
         if self.X.collision_free(x_nearest, self.x_goal, self.r):  # check if obstacle-free
             return True
+        print("Collision_with_goal", self.X.collision_free(x_nearest, self.x_goal, self.r))
         return False
 
     def get_path(self):
