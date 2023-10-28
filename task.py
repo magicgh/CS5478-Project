@@ -1,5 +1,5 @@
 from panda_gym.envs.core import Task
-from gymbullet import PyBullet
+from gym_panda.bullet import PyBullet
 from panda_gym.utils import distance
 import numpy as np
 from typing import Any, Dict
@@ -26,7 +26,7 @@ class PickAndPlace(Task):
         self.obj_range_low = np.array([-obj_xy_range / 2, -obj_xy_range / 2, 0])
         self.obj_range_high = np.array([obj_xy_range / 2, obj_xy_range / 2, 0])
         self.obst_num = obst_num
-        self.obstacle_size = 0.04
+        self.obstacle_size = 0.08
         self.obst_range_low = np.array([-obst_xy_range / 2, -obst_xy_range / 2, 0])
         self.obst_range_high = np.array([obst_xy_range / 2, obst_xy_range / 2, obst_z_range])
         self.obstacles = []

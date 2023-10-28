@@ -1,7 +1,7 @@
 from panda_gym.envs.core import RobotTaskEnv
 import numpy as np
 from typing import Optional
-from gymbullet import PyBullet
+from gym_panda.bullet import PyBullet
 from panda import Panda
 from task import PickAndPlace
 
@@ -30,7 +30,7 @@ class PandaPickAndPlaceEnv(RobotTaskEnv):
         self,
         render_mode: str = "rgb_array",
         reward_type: str = "sparse",
-        control_type: str = "ee",
+        control_type: str = "joint",
         renderer: str = "Tiny",
         render_width: int = 720,
         render_height: int = 480,

@@ -1,11 +1,7 @@
 from env import PandaPickAndPlaceEnv
-from motion_planner.rrt.rrt_star import RRTStar
-from motion_planner.rrt.rrt import RRT
-from motion_planner.search_space.search_space import SearchSpace
 import numpy as np
 from panda_gym.utils import distance
-from motion_planner.search_space.collision_utils import get_collision_fn
-from motion_planner.exp.rrt import rrt
+from rrt_test.exp.rrt import rrt
 
 env = PandaPickAndPlaceEnv(render_mode="rgb_array", renderer="OpenGL", control_type="joint")
 
@@ -25,7 +21,7 @@ obstacles = env.task.get_obstacles()
 '''
 collision_fn = get_collision_fn(env.robot.get_body_id(), env.robot.get_joint_indices(), obstacles)
 '''
-for _ in range(10000):
+for _ in range(100):
     
     achieved_goal = env.robot.ee_position_to_target_arm_angles(observation["achieved_goal"])
     desired_goal = env.robot.ee_position_to_target_arm_angles(observation["desired_goal"])
@@ -36,17 +32,31 @@ for _ in range(10000):
 
     rrt = RRTStar(X, Q, current_joint_angles, achieved_goal, max_samples, r, prc, rewire_count)
     '''
-    path = rrt(current_joint_angles, achieved_goal, 2000, 2, 0.6, env, obstacles, env.robot.get_body_id(), env.robot.get_joint_indices())
-    print("path", path)
-    print("current_joint_angles", current_joint_angles)
-    print("achieved_goal", achieved_goal)
-    env.robot.set_joint_angles(current_joint_angles)
-    for i in range(len(path)-1):
-        action = path[i+1] - path[i]
-        print("action", action)
-        action = np.append(action, 0)
-        observation, reward, terminated, truncated, info = env.step(action)
+    path = rrt(current_joint_angles, achieved_goal, 2000, 2, 0.6, env, obstacles, env.robot.get_body_id(), env.robot.get_revolute_joint_indices())
     
-    if terminated or truncated or distance(current_joint_angles, achieved_goal) < 0.05:
+    if path is None:
+        print("Goal not reached!")
         env.reset()
+        continue
+    
+    for i, position in enumerate(path):
+        observation, reward, terminated, truncated, info = env.step(position)
+
+    current_joint_state = np.array([
+                env.robot.get_joint_angle(i)
+                for i in env.robot.get_revolute_joint_indices()
+    ])
+    print(distance(current_joint_state, achieved_goal))
+    
+    if terminated or truncated:
+        env.reset()
+        
+    if distance(current_joint_state, achieved_goal) < 0.4:
+        print("Goal reached!")
+        env.reset()
+        
+    else:
+        print("Goal not reached!")
+        env.reset()
+
 env.close()
