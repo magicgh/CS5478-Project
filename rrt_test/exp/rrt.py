@@ -68,6 +68,7 @@ def check_collision(q, obstacles, robot_body_id, robot_joint_indices):
         closest_points = p.getClosestPoints(
             robot_body_id, obstacle_id, 0.18)
         if closest_points is not None and len(closest_points) != 0:
+            # print("check_collision: ", obstacle_id)
             return True
     return False
 
@@ -75,6 +76,7 @@ def obstacleFree(env, q_nearest, q_new, obstacles, robot_body_id, robot_joint_in
     res = check_collision(q_new, obstacles, robot_body_id, robot_joint_indices)
     # uncomment the line below if we need to move the robot back to q_nearest before proceeding:
     #env.set_joint_positions(q_nearest)
+    # print("obstacleFree: ", not res)
     return not res # res is true if there is a collision and vice versa if there isn't one, so we return the negation of res from obstacleFree
 
 

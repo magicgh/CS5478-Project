@@ -244,7 +244,7 @@ class DegreePRM(PRM):
 ##################################################
 
 def prm(start, goal, distance_fn, sample_fn, extend_fn, collision_fn,
-        target_degree=4, connect_distance=INF, num_samples=100): #, max_time=INF):
+        target_degree=4, connect_distance=INF, num_samples=500): #, max_time=INF):
     """
     :param start: Start configuration - conf
     :param goal: End configuration - conf
@@ -265,4 +265,4 @@ def prm(start, goal, distance_fn, sample_fn, extend_fn, collision_fn,
     else:
         roadmap = DegreePRM(distance_fn, extend_fn, collision_fn, samples=samples,
                             target_degree=target_degree, connect_distance=connect_distance)
-    return roadmap(start, goal)
+    return list(map(lambda x: list(x), roadmap(start, goal)))

@@ -14,7 +14,7 @@ PI = np.pi
 
 
 # TODO: deprecate these defaults
-RRT_ITERATIONS = 20
+RRT_ITERATIONS = 200
 RRT_RESTARTS = 2
 RRT_SMOOTHING = 20
 
@@ -413,7 +413,7 @@ def get_sample_function(space_dim, use_halton=False, goal_p=0.6):
 
     return sample
 
-def get_extend_function(step_size=2):
+def get_extend_function(step_size=0.1):
     
     def extend(q1, q2):
         delta = get_difference(q2, q1)

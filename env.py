@@ -39,10 +39,11 @@ class PandaPickAndPlaceEnv(RobotTaskEnv):
         render_yaw: float = 45,
         render_pitch: float = -30,
         render_roll: float = 0,
+        obst_num: int = 1,
     ) -> None:
         sim = PyBullet(render_mode=render_mode, renderer=renderer)
         robot = Panda(sim, block_gripper=False, base_position=np.array([-0.6, 0.0, 0.0]), control_type=control_type)
-        task = PickAndPlace(sim, reward_type=reward_type)
+        task = PickAndPlace(sim, reward_type=reward_type, obst_num=obst_num)
         super().__init__(
             robot,
             task,

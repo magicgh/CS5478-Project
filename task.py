@@ -13,7 +13,7 @@ class PickAndPlace(Task):
         goal_xy_range: float = 0.3,
         goal_z_range: float = 0.2,
         obj_xy_range: float = 0.3,
-        obst_num: int = 1,
+        obst_num: int = 3,
         obst_xy_range: float = 0.3,
         obst_z_range: float = 0.2,
     ) -> None:
@@ -26,7 +26,7 @@ class PickAndPlace(Task):
         self.obj_range_low = np.array([-obj_xy_range / 2, -obj_xy_range / 2, 0])
         self.obj_range_high = np.array([obj_xy_range / 2, obj_xy_range / 2, 0])
         self.obst_num = obst_num
-        self.obstacle_size = 0.08
+        self.obstacle_size = 0.04
         self.obst_range_low = np.array([-obst_xy_range / 2, -obst_xy_range / 2, 0])
         self.obst_range_high = np.array([obst_xy_range / 2, obst_xy_range / 2, obst_z_range])
         self.obstacles = []
@@ -80,7 +80,9 @@ class PickAndPlace(Task):
         for i in range(self.obst_num):
             obstacles_id.append(self.sim.get_body_id_from_name("obstacle_"+str(i)))
         return obstacles_id
-            
+    
+    def get_table_id(self) -> int:
+        return self.sim.get_body_id_from_name("table")
 
     def reset(self) -> None:
         self.goal = self._sample_goal()
@@ -128,9 +130,3 @@ class PickAndPlace(Task):
             return -np.array(d > self.distance_threshold, dtype=np.float32)
         else:
             return -d.astype(np.float32)
-        
-    def get_plane_id(self):
-        return self.sim.get_body_id_from_name("plane")
-    
-    def get_table_id(self):
-        return self.sim.get_body_id_from_name("table")

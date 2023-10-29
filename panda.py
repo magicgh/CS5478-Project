@@ -45,7 +45,7 @@ class Panda(PyBulletRobot):
             joint_forces=np.array(
                 [87.0, 87.0, 87.0, 87.0, 12.0, 120.0, 120.0, 170.0, 170.0]),
         )
-        self.joint_epsilon = 1e-2
+        self.joint_epsilon = 1e-3
         self.revolute_joints_indices = np.array([0, 1, 2, 3, 4, 5, 6], dtype=np.int32)
         self.fingers_indices = np.array([9, 10], dtype=np.int32)
         self.neutral_joint_values = np.array(
@@ -90,7 +90,7 @@ class Panda(PyBulletRobot):
         target_angles = np.concatenate(
             (target_arm_angles, [target_fingers_width / 2, target_fingers_width / 2]))
         
-        self.control_joints(target_angles=target_angles, speed=0.03)
+        self.control_joints(target_angles=target_angles, speed=0.01)
 
         timeout_t0 = time.time()
         
@@ -99,6 +99,7 @@ class Panda(PyBulletRobot):
                 self.sim.get_joint_angle(self.body_name, i)
                 for i in self.revolute_joints_indices
             ]
+            
             if all([
                 np.abs(
                     current_joint_state[i] - target_angles[i]) < self.joint_epsilon

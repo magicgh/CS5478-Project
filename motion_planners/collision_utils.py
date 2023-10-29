@@ -1,8 +1,9 @@
 import pybullet as p
 import numpy as np
 from collections import defaultdict, deque, namedtuple
-from itertools import product, combinations
-from typing import List, Optional, Union
+from itertools import product
+from typing import List, Optional
+
 PI = np.pi
 CIRCULAR_LIMITS = -PI, PI
 MAX_DISTANCE = 0
@@ -403,11 +404,13 @@ def get_fixed_links(body):
 
 
 def pairwise_collision(body1, body2, max_distance=MAX_DISTANCE):  # 10000
-    print("collision_utils.py: pairwise_collision", body1, body2, max_distance)
     return len(p.getClosestPoints(bodyA=body1, bodyB=body2, distance=max_distance,
                                   physicsClientId=CLIENT)) != 0  # getContactPoints
 
-
+def connected_pairwise_collision(body1, body2, max_distance=MAX_DISTANCE):  # 10000
+    return len(p.getClosestPoints(bodyA=body1, bodyB=body2, distance=max_distance,
+                                    physicsClientId=CLIENT)) <= 1
+    
 def pairwise_link_collision(body1, link1, body2, link2, max_distance=MAX_DISTANCE):  # 10000
     return len(p.getClosestPoints(bodyA=body1, bodyB=body2, distance=max_distance,
                                   linkIndexA=link1, linkIndexB=link2,
@@ -430,10 +433,15 @@ def all_collision(**kwargs):
     return False
 
 
+def child_link_from_joint(joint):
+    # note that link index == joint index
+    link = joint
+    return link
+
 def get_moving_links(body, moving_joints):
     moving_links = list(moving_joints)
-    for link in moving_joints:
-        moving_links += get_link_descendants(body, link)
+    for joint in moving_joints:
+        moving_links += get_link_descendants(body, child_link_from_joint(joint))
     return list(set(moving_links))
 
 
@@ -452,11 +460,8 @@ def get_moving_pairs(body, moving_joints):
 def get_self_link_pairs(body, joints, disabled_collisions=set()):
     moving_links = get_moving_links(body, joints)
     fixed_links = list(set(get_links(body)) - set(moving_links))
-    check_link_pairs = list(product(moving_links, fixed_links))
-    if True:
-        check_link_pairs += list(get_moving_pairs(body, joints))
-    else:
-        check_link_pairs += list(combinations(moving_links, 2))
+    check_link_pairs = list(product(moving_links, fixed_links)) + list(get_moving_pairs(body, joints))
+
     check_link_pairs = list(filter(lambda pair: not are_links_adjacent(body, *pair), check_link_pairs))
     check_link_pairs = list(filter(lambda pair: (pair not in disabled_collisions) and
                                                 (pair[::-1] not in disabled_collisions), check_link_pairs))
@@ -467,28 +472,27 @@ def get_collision_fn(
                         body: int, 
                         joints: List[int], 
                         obstacles: List[int], 
+                        connected_obstacles: Optional[List[int]] = [],
                         attachments: Optional[List] = [], 
                         self_collisions: Optional[bool] = True, 
                         disabled_collisions: Optional[List] = []
                      ):
-    
     check_link_pairs = get_self_link_pairs(body, joints, disabled_collisions) if self_collisions else []
     moving_bodies = [body] + [attachment.child for attachment in attachments]
     if obstacles is None:
         obstacles = list(set(get_bodies()) - set(moving_bodies))
     check_body_pairs = list(product(moving_bodies, obstacles))  # + list(combinations(moving_bodies, 2))
+    check_connected_pairs = list(product(connected_obstacles, obstacles))
 
     def collision_fn(q):
         if violates_limits(body, joints, q):
-            print('Limits violated')
             return True
         set_joint_positions(body, joints, q)
         for attachment in attachments:
             attachment.assign()
         for link1, link2 in check_link_pairs:
             if pairwise_link_collision(body, link1, body, link2):
-                print('Self collision', link1, link2)
                 return True
-        return any(pairwise_collision(*pair) for pair in check_body_pairs)
+        return any(pairwise_collision(*pair) for pair in check_body_pairs) and any(connected_pairwise_collision(*pair) for pair in check_connected_pairs)
 
     return collision_fn
