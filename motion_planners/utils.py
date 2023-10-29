@@ -399,3 +399,28 @@ def even_space(start, stop, step=1, endpoint=True):
     if not endpoint:
         return sequence
     return np.append(sequence, [stop])
+
+def get_sample_function(space_dim, use_halton=False, goal_p=0.6):
+    
+    lower = CIRCULAR_LIMITS.lower * np.ones(space_dim)
+    upper = CIRCULAR_LIMITS.upper * np.ones(space_dim)
+    
+    def sample(goal_q=None):
+        if goal_q is not None and np.random.uniform() < goal_p:
+            return goal_q
+        else:
+            return interval_generator(lower, upper, use_halton=use_halton).__next__()
+
+    return sample
+
+def get_extend_function(step_size=2):
+    
+    def extend(q1, q2):
+        delta = get_difference(q2, q1)
+        delta_norm = np.linalg.norm(delta)
+        if delta_norm < step_size:
+            return [q1 + np.random.uniform(0, delta_norm) * delta / delta_norm]
+        else:
+            return [q1 + step_size * delta / delta_norm]
+    
+    return extend

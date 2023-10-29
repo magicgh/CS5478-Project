@@ -13,7 +13,7 @@ class PickAndPlace(Task):
         goal_xy_range: float = 0.3,
         goal_z_range: float = 0.2,
         obj_xy_range: float = 0.3,
-        obst_num: int = 10,
+        obst_num: int = 1,
         obst_xy_range: float = 0.3,
         obst_z_range: float = 0.2,
     ) -> None:
