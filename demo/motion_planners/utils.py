@@ -14,7 +14,7 @@ PI = np.pi
 
 
 # TODO: deprecate these defaults
-RRT_ITERATIONS = 200
+RRT_ITERATIONS = 400
 RRT_RESTARTS = 2
 RRT_SMOOTHING = 20
 

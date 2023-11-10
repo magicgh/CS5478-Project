@@ -255,7 +255,6 @@ def prm(start, goal, distance_fn, sample_fn, extend_fn, collision_fn,
     :return: Path [q', ..., q"] or None if unable to find a solution
     """
     # TODO: compute_graph
-    print('start', start)
     start_time = time.time()
     start = tuple(start)
     goal = tuple(goal)

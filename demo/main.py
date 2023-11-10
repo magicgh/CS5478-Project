@@ -78,6 +78,7 @@ def test_rrt(args, num_trials, env):
                 path_conf = prm(env.robot_home_joint_config, env.robot_goal_joint_config, get_distance, get_sample, get_extend, get_collision)
             elif args.algo == 'original_rrt':
                 path_conf = original_rrt(env.robot_home_joint_config, env.robot_goal_joint_config, 10000, 2, 0.6, env)
+
             if path_conf is None:
                 print(
                     "no collision-free path is found within the time budget. continuing ...")
