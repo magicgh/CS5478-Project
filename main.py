@@ -1,4 +1,3 @@
-import time
 import numpy as np
 from env import PandaPickAndPlaceEnv
 # from rrt_test.exp.rrt import rrt
@@ -45,6 +44,7 @@ for _ in range(100):
     desired_goal = env.robot.ee_position_to_target_arm_angles(observation["desired_goal"])
     current_joint_angles = np.array([env.robot.get_joint_angle(i) for i in range(joint_num)])
     
+    print(achieved_goal)
     if args.planner == "rrt":
         path = rrt(current_joint_angles, achieved_goal, get_distance, get_sample, get_extend, get_collision)
     elif args.planner == "rrt_connect":
@@ -54,16 +54,13 @@ for _ in range(100):
         path = rrt_star(current_joint_angles, achieved_goal, get_distance, get_sample, get_extend, get_collision, 1.0)
     elif args.planner == "prm":
         path = prm(current_joint_angles, achieved_goal, get_distance, get_sample, get_extend, get_collision)
-    
-    if path is None:
-        path = [achieved_goal]
-    
-    else:
-        path += [achieved_goal]
+
     
     # path = rrt(current_joint_angles, achieved_goal, 2000, 2, 0.6, env, obstacles, env.robot.get_body_id(), env.robot.get_revolute_joint_indices())
     # assert 1==2
 
+    print(path)
+    print(achieved_goal)
     for i, position in enumerate(path):
         observation, reward, terminated, truncated, info = env.step(position)
     
@@ -74,7 +71,7 @@ for _ in range(100):
     
     current_joint_angles = np.array([env.robot.get_joint_angle(i) for i in range(joint_num)])
     
-    if get_distance(current_joint_angles, achieved_goal) < 0.09:
+    if get_distance(current_joint_angles, achieved_goal) < 0.06:
         print("Goal reached!")
         cnt += 1
         env.reset()

@@ -45,7 +45,7 @@ class Panda(PyBulletRobot):
             joint_forces=np.array(
                 [87.0, 87.0, 87.0, 87.0, 12.0, 120.0, 120.0, 170.0, 170.0]),
         )
-        self.joint_epsilon = 1e-3
+        self.joint_epsilon = 5e-4
         self.revolute_joints_indices = np.array([0, 1, 2, 3, 4, 5, 6], dtype=np.int32)
         self.fingers_indices = np.array([9, 10], dtype=np.int32)
         self.neutral_joint_values = np.array(
@@ -63,7 +63,7 @@ class Panda(PyBulletRobot):
     def set_action(self, action: np.ndarray) -> None:
         action = action.copy()  # ensure action don't change
         if len(action) == 7:
-            action = np.concatenate((action, [0.0]))
+            action = np.concatenate((action, [1.0]))
             
         if self.control_type == "ee":
             ee_displacement = action[:3]
@@ -90,7 +90,7 @@ class Panda(PyBulletRobot):
         target_angles = np.concatenate(
             (target_arm_angles, [target_fingers_width / 2, target_fingers_width / 2]))
         
-        self.control_joints(target_angles=target_angles, speed=0.01)
+        self.control_joints(target_angles=target_angles, speed=0.001)
 
         timeout_t0 = time.time()
         
@@ -106,9 +106,9 @@ class Panda(PyBulletRobot):
                 for i in range(len(self.revolute_joints_indices))
             ]):
                 break
-            if time.time()-timeout_t0 > 5:
+            if time.time()-timeout_t0 > 20:
                 print(
-                    "Timeout: robot is taking longer than 5s to reach the target joint state. Skipping...")
+                    "Timeout: robot is taking longer than 20s to reach the target joint state. Skipping...")
                 self.reset()
                 break
 
