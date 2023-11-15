@@ -8,12 +8,12 @@ from autolab_core import YamlConfig, CameraIntrinsics, DepthImage, ColorImage, R
 from visualization import Visualizer2D as vis
 from gqcnn.grasping import CrossEntropyRobustGraspingPolicy, RgbdImageState
 
-from PathPlanning.motion_planners.rrt_connect import rrt_connect
-from PathPlanning.motion_planners.rrt_star import rrt_star
-from PathPlanning.motion_planners.prm import prm
-from PathPlanning.motion_planners.rrt import rrt
-from PathPlanning.motion_planners.utils import get_sample_function, get_distance, get_extend_function
-from PathPlanning.motion_planners.collision_utils import get_collision_fn
+from motion_planners.rrt_connect import rrt_connect
+from motion_planners.rrt_star import rrt_star
+from motion_planners.prm import prm
+from motion_planners.rrt import rrt
+from motion_planners.utils import get_sample_function, get_distance, get_extend_function
+from motion_planners.collision_utils import get_collision_fn
 
 useNullSpace = 1
 ikSolver = 0
