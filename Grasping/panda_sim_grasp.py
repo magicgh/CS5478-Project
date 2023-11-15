@@ -122,9 +122,9 @@ class PandaSimAuto(object):
 
         self.camera_intr = CameraIntrinsics.load(os.path.join(current_path, 'primesense.intr'))
 
-        self.get_sample = get_sample_function(self.bullet_client.getNumJoints(self.panda))
+        self.get_sample = get_sample_function(9)
         self.get_extend = get_extend_function()
-        self.get_collision = get_collision_fn(self.panda, list(range(pandaNumDofs)), list())
+        self.get_collision = get_collision_fn(self.panda, list(range(9)), list())
 
         self.path = list()
         self.path_idx = 0
@@ -152,8 +152,7 @@ class PandaSimAuto(object):
             self.graspPos = self.get_grasp_pos()
         elif self.state == 3:
             if len(self.path) == 0:
-                self.path = self.get_path([self.graspPos[0], 0.4, self.graspPos[2]],
-                                          [math.pi / 2., 0., 0.])
+                self.path = self.get_path([self.graspPos[0], 0.4, self.graspPos[2]], [math.pi / 2., 0., 0.])
         elif self.state == 4:  # 张开机械手
             self.finger_target = 0.04
         elif self.state == 5:
@@ -165,27 +164,69 @@ class PandaSimAuto(object):
             self.finger_target = 0.01
         elif self.state == 7:
             if len(self.path) == 0:
-                self.path = self.get_path([0.6, 0.4, 0],
-                                          [math.pi / 2., 0., 0.])
+                self.path = self.get_path([0.6, 0.4, 0], [math.pi / 2., 0., 0.])
 
         if self.state == 1 or self.state == 3 or self.state == 5 or self.state == 7:
-            for i in range(pandaNumDofs):
+            for i in range(9):
                 self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
                                                          self.path[self.path_idx][i], force=5 * 240.)
-            self.path_idx += 1
+
+            if self.path_idx < len(self.path) - 1:
+                self.path_idx += 1
 
         if self.state == 4 or self.state == 6:
             for i in [9, 10]:
                 self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
                                                          self.finger_target, force=10)
 
-    def get_path(self, des_pos, des_orn, algorithm='rrt_start'):
-        current_joint_state = [self.bullet_client.getJointState(self.panda, i)[0] for i in range(pandaNumDofs)]
+    # def step(self):
+    #     self.bullet_client.submitProfileTiming("step")
+    #     self.update_state()
+    #
+    #     pos = self.prev_pos
+    #     orn = [math.pi / 2., 0, 0.]  # 需要根据预测结果调整第二个维度
+    #     alpha = 0.01  # 移动速度，越接近1越慢
+    #     if self.state == 1:
+    #         pos = self.get_next_pos(0, 0.4, -0.6, alpha)
+    #     elif self.state == 2:
+    #         self.graspPos = self.get_grasp_pos()
+    #     elif self.state == 3:
+    #         pos = self.get_next_pos(self.graspPos[0], 0.4, self.graspPos[2], alpha)
+    #         orn = self.get_next_orn(math.pi / 2., 0., 0., alpha)
+    #     elif self.state == 4:  # 张开机械手
+    #         self.finger_target = 0.04
+    #     elif self.state == 5:
+    #         # gripper_height = 0.034
+    #         pos = self.get_next_pos(self.graspPos[0], self.graspPos[1] + 0.034, self.graspPos[2], alpha)
+    #         orn = self.get_next_orn(math.pi / 2., self.graspPos[3], 0., alpha)
+    #     elif self.state == 6:  # 闭合机械手
+    #         self.finger_target = 0.01
+    #     elif self.state == 7:
+    #         pos = self.get_next_pos(0.6, 0.4, 0, alpha)
+    #
+    #     if pos != self.prev_pos:
+    #         self.prev_pos = pos
+    #         self.prev_orn = orn
+    #         quaternion_orn = self.bullet_client.getQuaternionFromEuler(orn)
+    #         jointPoses = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex, pos,
+    #                                                                    quaternion_orn, ll, ul, jr, rp,
+    #                                                                    maxNumIterations=20)
+    #         for i in range(pandaNumDofs):
+    #             self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
+    #                                                      jointPoses[i], force=5 * 240.)
+    #
+    #     for i in [9, 10]:
+    #         self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
+    #                                                  self.finger_target, force=10)
+
+    def get_path(self, des_pos, des_orn, algorithm='prm'):
+        current_joint_state = [self.bullet_client.getJointState(self.panda, i)[0] for i in range(9)]
+        quaternion_orn = self.bullet_client.getQuaternionFromEuler(des_orn)
         des_joint_state = self.bullet_client.calculateInverseKinematics(self.panda, pandaEndEffectorIndex,
-                                                                        des_pos, des_orn, ll, ul, jr, rp,
-                                                                        maxNumIterations=20)[:pandaNumDofs]
-        if algorithm == 'rrt_start':
-            return rrt_star(current_joint_state, des_joint_state, get_distance, self.get_sample, self.get_extend,
+                                                                        des_pos, quaternion_orn, ll, ul, jr, rp,
+                                                                        maxNumIterations=20)
+        if algorithm == 'rrt_star':
+            return rrt_star(current_joint_state, list(des_joint_state), get_distance, self.get_sample, self.get_extend,
                             self.get_collision, max_iterations=2000)
         elif algorithm == 'rrt_connect':
             return rrt_connect(current_joint_state, des_joint_state, get_distance, self.get_sample, self.get_extend,
@@ -198,6 +239,8 @@ class PandaSimAuto(object):
                        self.get_collision)
         # elif algorithm == 'original_rrt':
         #     return original_rrt(current_joint_state, des_joint_state, 10000, 2, 0.6, env)
+        else:
+            return list()
 
     def get_grasp_pos(self):
         width = 640  # 图像宽度
@@ -265,3 +308,17 @@ class PandaSimAuto(object):
         # return [cameraPos[0] - pose[0], cameraPos[1] - pose[2], cameraPos[2] + pose[1], angle]
         # return [pose[0], 0.00, -0.6 + pose[1], angle]
         return [-cameraPos[0] + pose_world[0], 0.034, cameraPos[2] + pose_world[2], angle]
+
+    def get_next_pos(self, x, y, z, alpha):
+        pos = [0, 0, 0]
+        pos[0] = self.prev_pos[0] * (1 - alpha) + alpha * x
+        pos[1] = self.prev_pos[1] * (1 - alpha) + alpha * y
+        pos[2] = self.prev_pos[2] * (1 - alpha) + alpha * z
+        return pos
+
+    def get_next_orn(self, x, y, z, alpha):
+        orn = [0, 0, 0]
+        orn[0] = self.prev_orn[0] * (1 - alpha) + alpha * x
+        orn[1] = self.prev_orn[1] * (1 - alpha) + alpha * y
+        orn[2] = self.prev_orn[2] * (1 - alpha) + alpha * z
+        return orn
