@@ -5,7 +5,7 @@ Please refer demo for motion planning.
 ## How to run Demo
 ```bash
 pip install panda-gym
-python demo.py
+python PathPlanning.py
 ```
 ## Reference
 * [panda-gym](https://github.com/qgallouedec/panda-gym)
