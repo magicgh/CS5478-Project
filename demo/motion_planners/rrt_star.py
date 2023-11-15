@@ -59,6 +59,15 @@ class OptimalNode(object):
         self.node_handle = None
         self.edge_handle = None
 
+    def draw(self, env):
+        # https://github.mit.edu/caelan/lis-openrave
+        from manipulation.primitives.display import draw_node, draw_edge
+        color = apply_alpha(BLUE if self.solution else RED, alpha=0.5)
+        self.node_handle = draw_node(env, self.config, color=color)
+        if self.parent is not None:
+            self.edge_handle = draw_edge(
+                env, self.config, self.parent.config, color=color)
+
     def __str__(self):
         return self.__class__.__name__ + '(' + str(self.config) + ')'
     __repr__ = __str__
@@ -74,7 +83,7 @@ def safe_path(sequence, collision):
 
 ##################################################
 
-def rrt_star(start, goal, distance_fn, sample_fn, extend_fn, collision_fn, k_nearest=5,
+def rrt_star(start, goal, distance_fn, sample_fn, extend_fn, collision_fn, radius,
              max_time=INF, max_iterations=INF, goal_probability=.2, informed=True):
     """
     :param start: Start configuration - conf
@@ -103,8 +112,6 @@ def rrt_star(start, goal, distance_fn, sample_fn, extend_fn, collision_fn, k_nea
             cost = goal_n.cost if success else INF
             print('Iteration: {} | Time: {:.3f} | Success: {} | {} | Cost: {:.3f}'.format(
                 iteration, elapsed_time(start_time), success, do_goal, cost))
-            if goal_n is not None:
-                break
         iteration += 1
 
         nearest = argmin(lambda n: distance_fn(n.config, s), nodes)
@@ -118,7 +125,7 @@ def rrt_star(start, goal, distance_fn, sample_fn, extend_fn, collision_fn, k_nea
             goal_n = new
             goal_n.set_solution(True)
         # TODO - k-nearest neighbor version
-        neighbors = sorted(nodes, key=lambda n: distance_fn(n.config, new.config))[:k_nearest]
+        neighbors = filter(lambda n: distance_fn(n.config, new.config) < radius, nodes)
         nodes.append(new)
 
         # TODO: smooth solution once found to improve the cost bound
@@ -136,16 +143,7 @@ def rrt_star(start, goal, distance_fn, sample_fn, extend_fn, collision_fn, k_nea
                     n.rewire(new, d, path[:-1], iteration=iteration)
     if goal_n is None:
         return None
-    return smooth_path(goal_n.retrace(), collision_fn, extend_fn)
+    return goal_n.retrace()
 
 def informed_rrt_star(start, goal, distance_fn, sample_fn, extend_fn, collision_fn, radius, **kwargs):
     return rrt_star(start, goal, distance_fn, sample_fn, extend_fn, collision_fn, radius, informed=True, **kwargs)
-
-def smooth_path(path, collision_fn, extend_fn):
-    i = 0
-    while i < len(path) - 2:
-        if not any(collision_fn(q) for q in extend_fn(path[i], path[i + 2])):
-            path.pop(i + 1)  # Remove the intermediate waypoint
-        else:
-            i += 1
-    return path

@@ -32,13 +32,10 @@ class TreeNode(object):
     __repr__ = __str__
 
 
-def configs(nodes, goal):
+def configs(nodes):
     if nodes is None:
         return None
-    nodes_list = list(map(lambda n: n.config, nodes))
-    if any(nodes_list[-1] != goal):
-        nodes_list.append(goal)
-    return nodes_list
+    return list(map(lambda n: n.config, nodes))
 
 
 def rrt(start, goal_sample, distance_fn, sample_fn, extend_fn, collision_fn, goal_test=lambda q: False,
@@ -73,8 +70,8 @@ def rrt(start, goal_sample, distance_fn, sample_fn, extend_fn, collision_fn, goa
             last = TreeNode(q, parent=last)
             nodes.append(last)
             if goal_test(last.config):
-                return configs(last.retrace(), goal_sample())
+                return configs(last.retrace())
         else:
             if goal:
-                return configs(last.retrace(), goal_sample())
+                return configs(last.retrace())
     return None

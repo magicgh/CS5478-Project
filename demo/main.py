@@ -69,9 +69,9 @@ def test_rrt(args, num_trials, env):
             get_extend = get_extend_function()
             get_collision = get_collision_fn(env.get_robot_body_id(), env.get_joint_indices(), env.get_obstacles())
             if args.algo == 'rrt_star':
-                path_conf = rrt_star(env.robot_home_joint_config, env.robot_goal_joint_config, get_distance, get_sample, get_extend, get_collision, max_iterations=2000)
+                path_conf = rrt_star(env.robot_home_joint_config, env.robot_goal_joint_config, get_distance, get_sample, get_extend, get_collision, 1.0, max_iterations=200)
             elif args.algo == 'rrt_connect':
-                path_conf = prm(env.robot_home_joint_config, env.robot_goal_joint_config, get_distance, get_sample, get_extend, get_collision)
+                path_conf = rrt_connect(env.robot_home_joint_config, env.robot_goal_joint_config, get_distance, get_sample, get_extend, get_collision)
             elif args.algo == 'rrt':
                 path_conf = rrt(env.robot_home_joint_config, env.robot_goal_joint_config, get_distance, get_sample, get_extend, get_collision)
             elif args.algo == 'prm':
