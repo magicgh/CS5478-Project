@@ -69,6 +69,6 @@ def rrt(start, goal_sample, distance_fn, sample_fn, extend_fn, collision_fn,
                 break
             last = TreeNode(q, parent=last)
             nodes.append(last)
-            if distance_fn(last.config, s) < 0.1:
+            if distance_fn(last.config, goal_sample()) < 0.01:
                 return configs(last.retrace())
     return None

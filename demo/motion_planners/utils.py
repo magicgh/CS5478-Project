@@ -14,7 +14,7 @@ PI = np.pi
 
 
 # TODO: deprecate these defaults
-RRT_ITERATIONS = 400
+RRT_ITERATIONS = 2000
 RRT_RESTARTS = 2
 RRT_SMOOTHING = 20
 
@@ -400,7 +400,7 @@ def even_space(start, stop, step=1, endpoint=True):
         return sequence
     return np.append(sequence, [stop])
 
-def get_sample_function(space_dim, use_halton=False, goal_p=0.6):
+def get_sample_function(space_dim, use_halton=False, goal_p=None):
     
     lower = CIRCULAR_LIMITS.lower * np.ones(space_dim)
     upper = CIRCULAR_LIMITS.upper * np.ones(space_dim)
@@ -413,7 +413,7 @@ def get_sample_function(space_dim, use_halton=False, goal_p=0.6):
 
     return sample
 
-def get_extend_function(step_size=0.1):
+def get_extend_function(step_size=0.01):
     
     def extend(q1, q2):
         delta = get_difference(q2, q1)
@@ -424,3 +424,39 @@ def get_extend_function(step_size=0.1):
             return [q1 + step_size * delta / delta_norm]
     
     return extend
+
+def get_smooth_path(path, collision_fn, extend_fn, smoothing_iterations=1, extend_iterations=100):
+    """
+    Smooths a path by trying to connect non-consecutive nodes directly.
+
+    :param path: List of configurations forming the path.
+    :param collision_fn: Function to check if a configuration is in collision.
+    :param extend_fn: Function to create intermediate configurations.
+    :param smoothing_iterations: Number of iterations to attempt smoothing.
+    :return: Smoothed path.
+    """
+    if not path:
+        return None
+
+    for _ in range(smoothing_iterations):
+        if len(path) <= 2:
+            break  # Can't smooth a path with 2 or fewer points
+
+        # Randomly select two non-adjacent points in the path
+        i = np.random.randint(0, len(path) - 2)
+        j = np.random.randint(i + 2, len(path))
+        if j >= len(path):
+            continue
+
+        # Check if a direct path exists between these two points
+        direct_path = True
+        for q in [extend_fn(path[i], path[j])[0] for _ in range(extend_iterations)]:
+            if collision_fn(q):
+                direct_path = False
+                break
+
+        # If a direct path exists, remove the intermediate points
+        if direct_path:
+            path = path[:i+1] + path[j:]
+
+    return path

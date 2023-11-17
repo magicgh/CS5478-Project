@@ -7,7 +7,7 @@ from motion_planners.rrt_connect import rrt_connect
 from motion_planners.rrt_star import rrt_star
 from motion_planners.prm import prm
 from motion_planners.rrt import rrt
-from motion_planners.utils import get_sample_function, get_distance, get_extend_function
+from motion_planners.utils import get_sample_function, get_distance, get_extend_function, get_smooth_path
 from motion_planners.collision_utils import get_collision_fn
 from rrt import execute_path
 from rrt import rrt as original_rrt
@@ -83,6 +83,7 @@ def test_rrt(args, num_trials, env):
                 print(
                     "no collision-free path is found within the time budget. continuing ...")
             else:
+                path_conf = get_smooth_path(path_conf, get_collision, get_extend)
                 env.set_joint_positions(env.robot_home_joint_config)
                 execute_path(path_conf, env)
             p.removeAllUserDebugItems()
