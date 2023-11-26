@@ -40,12 +40,17 @@ class PandaSimAuto(object):
 
         # print("offset=",offset)
         flags = self.bullet_client.URDF_ENABLE_CACHED_GRAPHICS_SHAPES
+        self.obstacles = []
         self.legos = []
 
-        self.bullet_client.loadURDF("tray/traybox.urdf",
-                                    [0 + offset[0], 0 + offset[1], -0.6 + offset[2]],
-                                    [-0.5, -0.5, -0.5, 0.5],
-                                    flags=flags)
+        self.obstacles.append(self.bullet_client.loadURDF("tray/traybox.urdf",
+                                                          [0 + offset[0], 0 + offset[1], -0.6 + offset[2]],
+                                                          [-0.5, -0.5, -0.5, 0.5],
+                                                          flags=flags))
+        self.obstacles.append(self.bullet_client.loadURDF("tray/traybox.urdf",
+                                                          [0 + offset[0], 0 + offset[1], 0.6 + offset[2]],
+                                                          [-0.5, -0.5, -0.5, 0.5],
+                                                          flags=flags))
 
         self.legos.append(self.bullet_client.loadURDF("lego/lego.urdf",
                                                       np.array([0.1, 0.3, -0.5]) + self.offset,
@@ -93,11 +98,11 @@ class PandaSimAuto(object):
             info = self.bullet_client.getJointInfo(self.panda, j)
             # print("info=",info)
             # jointName = info[1]
-            jointType = info[2]
-            if jointType == self.bullet_client.JOINT_PRISMATIC:
+            joint_type = info[2]
+            if joint_type == self.bullet_client.JOINT_PRISMATIC:
                 self.bullet_client.resetJointState(self.panda, j, jointPositions[index])
                 index = index + 1
-            if jointType == self.bullet_client.JOINT_REVOLUTE:
+            if joint_type == self.bullet_client.JOINT_REVOLUTE:
                 self.bullet_client.resetJointState(self.panda, j, jointPositions[index])
                 index = index + 1
 
@@ -109,9 +114,9 @@ class PandaSimAuto(object):
 
         self.state_t = 0
         self.cur_state = 0
-        # 0：初始状态、1：移动到空闲位置、2：获取深度图片计算最优抓取位置、3：张开机械手、4：移动到目标处、5：闭合机械手、6：移动到目标位置
-        self.states = [0, 1, 2, 3, 4, 5, 6, 2]
-        self.state_durations = [1, 1, 0, 1, 2, 1, 2, 1]
+        # 0：初始状态、1：移动到空闲位置、2：获取深度图片计算最优抓取位置、3：移动到抓取处上方、4：张开机械手、5：移动到抓取处、6：闭合机械手、7：移动到放置处
+        self.states = [0, 1, 2, 3, 4, 5, 6, 3, 1, 7, 4]
+        self.state_durations = [1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1]
 
         current_path = os.path.dirname(os.path.abspath(__file__))
         config = YamlConfig(os.path.join(current_path, 'gqcnn_pj.yaml'))
@@ -124,7 +129,7 @@ class PandaSimAuto(object):
 
         self.get_sample = get_sample_function(9)
         self.get_extend = get_extend_function()
-        self.get_collision = get_collision_fn(self.panda, list(range(9)), list())
+        self.get_collision = get_collision_fn(self.panda, list(range(9)), self.obstacles)
 
         self.path = list()
         self.path_idx = 0
@@ -148,21 +153,25 @@ class PandaSimAuto(object):
         if self.state == 1:
             if len(self.path) == 0:
                 self.path = self.get_path([0.6, 0.4, 0], [math.pi / 2., 0, 0.])
-        if self.state == 2:
+        elif self.state == 2:
             self.graspPos = self.get_grasp_pos()
         elif self.state == 3:
-            self.finger_target = 0.04
+            if len(self.path) == 0:
+                self.path = self.get_path([self.graspPos[0], 0.4, self.graspPos[2]],
+                                          [math.pi / 2., 0., 0.])
         elif self.state == 4:
+            self.finger_target = 0.04
+        elif self.state == 5:
             if len(self.path) == 0:
                 self.path = self.get_path([self.graspPos[0], self.graspPos[1], self.graspPos[2]],
                                           [math.pi / 2., self.graspPos[3], 0.])
-        elif self.state == 5:  # 张开机械手
-            self.finger_target = 0.01
         elif self.state == 6:
+            self.finger_target = 0.01
+        elif self.state == 7:
             if len(self.path) == 0:
-                self.path = self.get_path([0, 0.4, -0.6], [math.pi / 2., 0., 0.])
+                self.path = self.get_path([0, 0.4, 0.6], [math.pi / 2., 0., 0.])
 
-        if self.state == 1 or self.state == 4 or self.state == 6:
+        if self.state == 1 or self.state == 3 or self.state == 5 or self.state == 7:
             for i in range(9):
                 self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
                                                          self.path[self.path_idx][i], force=5 * 240.)
@@ -170,7 +179,7 @@ class PandaSimAuto(object):
             if self.path_idx < len(self.path) - 1:
                 self.path_idx += 1
 
-        if self.state == 3 or self.state == 5:
+        if self.state == 4 or self.state == 6:
             for i in [9, 10]:
                 self.bullet_client.setJointMotorControl2(self.panda, i, self.bullet_client.POSITION_CONTROL,
                                                          self.finger_target, force=10)
@@ -182,8 +191,8 @@ class PandaSimAuto(object):
                                                                         des_pos, quaternion_orn, ll, ul, jr, rp,
                                                                         maxNumIterations=20)
         if algorithm == 'rrt_star':
-            return rrt_star(current_joint_state, list(des_joint_state), get_distance, self.get_sample, self.get_extend,
-                            self.get_collision, max_iterations=2000)
+            return rrt_star(current_joint_state, des_joint_state, get_distance, self.get_sample, self.get_extend,
+                            self.get_collision, 1.0, max_iterations=200)
         elif algorithm == 'rrt_connect':
             return rrt_connect(current_joint_state, des_joint_state, get_distance, self.get_sample, self.get_extend,
                                self.get_collision)
@@ -193,8 +202,6 @@ class PandaSimAuto(object):
         elif algorithm == 'prm':
             return prm(current_joint_state, des_joint_state, get_distance, self.get_sample, self.get_extend,
                        self.get_collision)
-        # elif algorithm == 'original_rrt':
-        #     return original_rrt(current_joint_state, des_joint_state, 10000, 2, 0.6, env)
         else:
             return list()
 

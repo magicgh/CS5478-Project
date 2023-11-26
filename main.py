@@ -31,7 +31,7 @@ panda.control_dt = timeStep
 
 logId = panda.bullet_client.startStateLogging(panda.bullet_client.STATE_LOGGING_PROFILE_TIMINGS, "log.json")
 panda.bullet_client.submitProfileTiming("start")
-for i in range(100000):
+for i in range(2400):
     panda.bullet_client.submitProfileTiming("full_step")
     panda.step()
     p.stepSimulation()
