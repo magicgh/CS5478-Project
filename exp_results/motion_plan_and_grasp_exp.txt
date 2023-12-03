@@ -1,0 +1,6 @@
+PRM Without Obstacles: 0.9
+RRTConnect Without Obstacles: 0.5
+EST Without Obstacles: 0.75
+PRM With Obstacles: 0.6
+RRTConnect With Obstacles: 0.55
+EST With Obstacles: 0.5

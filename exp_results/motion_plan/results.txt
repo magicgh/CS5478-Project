@@ -1,0 +1,36 @@
+PRM Without Obstacles Time:
+	mean: 0.24467891454696655
+	variance: 0.00010834654662446041
+RRTConnect Without Obstacles Time:
+	mean: 0.13483728170394899
+	variance: 2.14868272477986e-05
+EST Without Obstacles Time:
+	mean: 0.13309866189956665
+	variance: 0.00010860234169101091
+PRM With Obstacles Time:
+	mean: 0.4739890217781067
+	variance: 0.09065302977398047
+RRTConnect With Obstacles Time:
+	mean: 0.24610530138015746
+	variance: 0.0001701792857743101
+EST With Obstacles Time:
+	mean: 0.323388409614563
+	variance: 0.010681510670389683
+PRM Without Obstacles Distance:
+	mean: 0.004246431454146734
+	variance: 3.414473833303191e-05
+RRTConnect Without Obstacles Distance:
+	mean: 0.0027653084654460673
+	variance: 1.1278612119311638e-05
+EST Without Obstacles Distance:
+	mean: 0.002068046552959655
+	variance: 2.785776005690519e-06
+PRM With Obstacles Distance:
+	mean: 0.0025290632597893123
+	variance: 1.3165175717664225e-05
+RRTConnect With Obstacles Distance:
+	mean: 0.0013371609124290542
+	variance: 1.5268057517824098e-06
+EST With Obstacles Distance:
+	mean: 0.00370764780932901
+	variance: 2.6661165072903362e-05
