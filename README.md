@@ -23,5 +23,7 @@ Run grasp position predicting experiment: `python grasp_exp.py`.
 
 Run motion planning experiment: `python motion_plan_exp.py`.
 
+The experiment results will be saved in exp_results/.
+
 ## License
 [MIT License](./LICENSE)
