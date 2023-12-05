@@ -9,9 +9,9 @@ Tensorflow version is 1.15.5 and numpy version is 1.18.5.
 
 The version of numpy changes as subsequent libraries are installed, which in turn leads to conflicts with the tensorflow version. You need to make sure that the version of tensorflow is 1.15.5 and the version of numpy is 1.18.5. Then, look for other third-party library versions that meet both of these two requirements.
 
-Install pybullet and gqcnn by pip.
+Install pybullet and gqcnn by `pip install pybullet gqcnn`.
 
-Follow the [instruction](https://github.com/lyfkyle/pybullet_ompl) to install omp.
+Follow the [instruction](https://github.com/lyfkyle/pybullet_ompl) to install ompl.
 
 ## Usage
 
